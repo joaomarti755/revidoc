@@ -71,33 +71,42 @@ export default function Analysis() {
   };
 
   const handleAnalyze = async () => {
-    if (!selectedImage) return;
-    try {
-      const base64Response = await fetch(selectedImage);
-      const blob = await base64Response.blob();
-      const file = new File([blob], "image.jpg", { type: "image/jpeg" });
+  if (!selectedImage) return;
+  try {
+    const mimeType = selectedImage.startsWith("data:image/png") ? "image/png" : "image/jpeg";
+    const base64Response = await fetch(selectedImage);
+    const blob = await base64Response.blob();
+    const file = new File([blob], "image", { type: mimeType });
 
-      const formData = new FormData();
-      formData.append("file", file);
+    const formData = new FormData();
+    formData.append("file", file);
 
-      toast.info("Analisando imagem...");
+    toast.info("Analisando imagem...");
 
-      const response = await fetch("http://127.0.0.1:8000/analisar", {
-        method: "POST",
-        body: formData,
-      });
+    const response = await fetch("http://localhost:8000/analisar", {
+      method: "POST",
+      body: formData,
+      headers: {
+        "accept": "application/json",
+      },
+    });
 
-      if (!response.ok) throw new Error("Erro na resposta da API");
+    if (!response.ok) throw new Error("Erro na resposta da API");
 
-      const data = await response.json();
-      setCorrosionResult(`Corrosão detectada: ${data.percentual_corrosao}%`);
-      setResultImage(`data:image/jpeg;base64,${data.imagem_resultado_base64}`);
-      toast.success("Análise concluída com sucesso!");
-    } catch (error) {
-      console.error("Erro na análise:", error);
-      toast.error("Erro ao analisar a imagem. Tente novamente.");
-    }
-  };
+    // Percentual do header
+    const percentualHeader = response.headers.get("x-corrosao-percentual");
+setCorrosionResult(percentualHeader ? `Corrosão detectada: ${percentualHeader}%` : "Percentual não encontrado");
+    // Imagem do corpo da resposta
+    const resultBlob = await response.blob();
+    const resultImageUrl = URL.createObjectURL(resultBlob);
+    setResultImage(resultImageUrl);
+
+    toast.success("Análise concluída com sucesso!");
+  } catch (error) {
+    console.error("Erro na análise:", error);
+    toast.error("Erro ao analisar a imagem. Tente novamente.");
+  }
+};
 
   return (
     <div className="min-h-screen p-0 flex items-center justify-center bg-[#fbbf7a]">
